@@ -10,7 +10,6 @@
 #include <thread>
 #include <filesystem>
 #include <vector>
-#include <map>
 #include <cstring>
 
 #include <stdlib.h>
@@ -25,8 +24,6 @@
 
 #include "main.hpp"
 
-#define STUDENTFILESIZE 4 // assume student files will all be 4 bytes long
-
 // exit if argc is not 1
 // argv is the number of TAs
 int main(int argc, char* argv[]) {
@@ -36,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     // vector to hold the rubric data
     std::vector<char> rubric;
-
+    
     // buffer to hold student numbers
     std::vector<int> student_buffer;
 
@@ -48,6 +45,12 @@ int main(int argc, char* argv[]) {
 
     // holds the file name of the current student
     std::string current_student;
+
+    // struct to handle file & directory I/O
+    struct dirent *entry = nullptr;
+
+    // pointer to desired directory
+    DIR *dp = nullptr;
 
     // make sure the correct arguments were passed
     if (argc == 1) {
@@ -83,7 +86,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << std::endl;
     
-    // create shared memory the size of 
+    // create shared memory the size of a shared_vars struct
     int shmid = shmget((key_t) 6969, sizeof(struct shared_vars), IPC_CREAT | 0666); 
 
     // check that shmget worked
@@ -108,17 +111,11 @@ int main(int argc, char* argv[]) {
     // this makes it so that the 2 variables defined in shared_vars now are in shared memory
     shared_data = (struct shared_vars *)shared_mem;
 
-    // struct to handle file & directory I/O
-    struct dirent *entry = nullptr;
-
-    // pointer to desired directory
-    DIR *dp = nullptr;
-
     // assign dp to the desired directory
     dp = opendir("students");
 
     // iterate through each student and add them to the student buffer
-    // this entire block of code is disgusting. 
+    // this entire block of code a disgusting amalgamation of C and C++ and I hate it
     if (dp != nullptr) {
         while (entry = readdir(dp)) {
             // do this to ignore current and prev dir
@@ -131,7 +128,7 @@ int main(int argc, char* argv[]) {
                 // read file contents
                 std::ifstream file(filepath);
                 if (file.is_open()) {
-                    char sn_buf[4];
+                    char sn_buf[8];
                     int tmp_buf;
 
                     while (std::getline(file, input_buffer)) {
@@ -155,10 +152,13 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // initialize each student semaphore
+    closedir(dp);
+
+    // initialize student stuff
     for (int i = 0; i < NUMSTUDENTS; i++) {
-        shared_data->students[i] = student_buffer[i];
-        sem_init(&shared_data->per_student_semaphore[i], 1, 1);
+        shared_data->students[i][0] = student_buffer[i];
+        sem_init(&shared_data->per_question_semaphore[i], 1, 1);
+        shared_data->students[i][i + 1] = 0; // each question starts as ungraded
         shared_data->student_grading_counter[i] = 0; // each student starts as fully ungraded
     }
 
@@ -175,6 +175,24 @@ int main(int argc, char* argv[]) {
     // create PID
     pid_t pid;
     pid = fork();
+
+    // see whether we are the parent process or a TA (child process)
+    switch (pid)
+    {
+    case -1:
+        std::cout << "ERROR: fork() failed." << std::endl;
+        exit(1);
+        break;
+
+    case 0:
+        std::cout << "Process is a TA" << std::endl;
+        execl("./TA", "TA", NULL);
+        break;
+    
+    default:
+        std::cout << "Process is parent" << std::endl;
+        break;
+    }
 
     return EXIT_SUCCESS;
 }
