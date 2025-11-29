@@ -157,9 +157,13 @@ int main(int argc, char* argv[]) {
     // initialize student stuff
     for (int i = 0; i < NUMSTUDENTS; i++) {
         shared_data->students[i][0] = student_buffer[i];
-        sem_init(&shared_data->per_question_semaphore[i], 1, 1);
-        shared_data->students[i][i + 1] = 0; // each question starts as ungraded
+        //sem_init(&shared_data->per_question_semaphore[i], 1, 1);
+        
         shared_data->student_grading_counter[i] = 0; // each student starts as fully ungraded
+
+        for (int j = 0; j < NUMQUESTIONS; j++) {
+            shared_data->students[i][j + 1] = 0; // each question starts as ungraded
+        }
     }
 
     // add rubric to the shared rubric array

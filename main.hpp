@@ -26,7 +26,7 @@ struct shared_vars {
      * 
      */
     int students[NUMSTUDENTS][NUMQUESTIONS + 1]; 
-    sem_t per_question_semaphore[NUMQUESTIONS];
+    //sem_t per_question_semaphore[NUMQUESTIONS];
     int student_grading_counter[NUMSTUDENTS];
 };
 
