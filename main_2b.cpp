@@ -21,9 +21,8 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <dirent.h>
 
-#include "main_2a.hpp"
+#include "main_2b.hpp"
 
 // exit if argc is not 1
 // argv is the number of TAs
@@ -158,14 +157,16 @@ int main(int argc, char* argv[]) {
     // initialize student stuff
     for (int i = 0; i < NUMSTUDENTS; i++) {
         shared_data->students[i][0] = student_buffer[i];
-        //sem_init(&shared_data->per_question_semaphore[i], 1, 1);
         
-        
-
         for (int j = 0; j < NUMQUESTIONS; j++) {
             shared_data->students[i][j + 1] = 0; // each question starts as ungraded
+           
+            // create a semaphore for each student's questions
+            sem_init(&shared_data->per_question_semaphore[i][j], 1, 1);
         }
     }
+
+    sem_init(&shared_data->rubric_semaphore, 1, 1);
 
     // add rubric to the shared rubric array
     for (int i = 0; i < NUMQUESTIONS; i++) {
@@ -198,7 +199,7 @@ int main(int argc, char* argv[]) {
 
         case 0:
             std::cout << "Process is a TA" << std::endl;
-            execl("./TA", "TA", NULL);
+            execl("./ta", "ta", NULL);
             break;
         
         default:
@@ -207,6 +208,5 @@ int main(int argc, char* argv[]) {
         }
     }
     
-
     return EXIT_SUCCESS;
 }

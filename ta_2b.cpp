@@ -14,12 +14,12 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <dirent.h>
+#include <semaphore.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <dirent.h>
 
-#include "main_2a.hpp"
+#include "main_2b.hpp"
 
 int main(void) {
 
@@ -68,6 +68,8 @@ int main(void) {
 
         // iterate through rubric and decide whether it needs to be fixed
         for (int i = 0; i < NUMQUESTIONS; i++) {
+
+            sem_wait(&shared_data->rubric_semaphore);
             // generate a random delay value between 500 and 1000 milliseconds
             decision_delay = ((rand() % 501) + 500);
             std::this_thread::sleep_for(std::chrono::milliseconds(decision_delay));
@@ -76,7 +78,7 @@ int main(void) {
             edit_q = rand() % 4;
 
             if(edit_q == 0) {
-                std::cout << "TA has decided to edit question " << i + 1 << std::endl;
+                std::cout << "TA " << pid_num << " has decided to edit question " << i + 1 << std::endl;
                 // edit question
                 shared_data->rubric_mem[i] = shared_data->rubric_mem[i] + 1;
 
@@ -84,39 +86,37 @@ int main(void) {
                 increment_rubric(i, "rubric.txt");
             }
 
+            sem_post(&shared_data->rubric_semaphore);
         }
 
         selected_student = shared_data->students[completed_students][0];
-        std::cout << "TA has selected student number " << selected_student << std::endl;
+        std::cout << "TA "  << pid_num << " has selected student number " << selected_student << std::endl;
 
         for (int i = 1; i < NUMQUESTIONS + 1; i++) {
-            std::cout << "debug: " << shared_data->students[completed_students][i] << std::endl;
-            
-        }
 
-        for (int i = 1; i < NUMQUESTIONS + 1; i++) {
+            // to keep track of which question we're on
+            int question_index = i - 1;
+
+            // this is just so that completed_students doesn't get incremented by another process
+            int student_index = completed_students;
+
+            // lock the question at hand
+            sem_wait(&shared_data->per_question_semaphore[student_index][i]);
+
             if (shared_data->students[completed_students][i] == 0) {
-                std::cout << "TA is grading question " << i << " from student " << selected_student << std::endl;
+                std::cout << "TA " << pid_num << " is grading question " << i << " from student " << selected_student << std::endl;
 
                 decision_delay = (rand() % 1001) + 1000;
                 std::this_thread::sleep_for(std::chrono::milliseconds(decision_delay));
 
                 shared_data->students[completed_students][i] = 1;
             }
+            
+            // release semaphore
+            sem_post(&shared_data->per_question_semaphore[student_index][i]);
         }
+        
 
-        /**
-
-        while (shared_data->student_grading_counter[completed_students] < 6) { // 6 bc apparently they all start at 1??
-
-            std::cout << shared_data->student_grading_counter[completed_students] - 1 << " questions graded" << std::endl;
-            std::cout << "Student " << selected_student << " has " << 6 - shared_data->student_grading_counter[completed_students] << " ungraded questions" << std::endl;
-            decision_delay = (rand() % 1001) + 1000;
-            std::this_thread::sleep_for(std::chrono::milliseconds(decision_delay));
-            shared_data->student_grading_counter[completed_students]++;
-            std::cout << "TA has marked question " << shared_data->student_grading_counter[completed_students] - 1 << std::endl;
-        } 
-        */
        completed_students++;
        std::cout << "completed students: " << completed_students << std::endl;
     }
