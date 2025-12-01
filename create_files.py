@@ -1,7 +1,7 @@
 import random
 
-num_students = 20
-student_nums = random.sample(range(0000, 9999), num_students)
+num_students = 19
+student_nums = random.sample(range(0000, 9998), num_students)
 student_nums.sort()
 
 for i in range(num_students):
@@ -12,3 +12,6 @@ for i in range(num_students):
     filename = "student_" + student_nums[i] + ".txt"
     with open("students/" + filename, "w") as f:
         f.write(student_nums[i])
+
+with open("students/student_9999.txt", "w") as f:
+    f.write("9999")
